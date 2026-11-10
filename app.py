@@ -35,6 +35,9 @@ USER_TOKEN_HEADER = "X-Forwarded-Access-Token"
 GENIE_SPACE_ID = os.getenv("GENIE_SPACE_ID", "")
 GENIE_RESULT_ROW_LIMIT = 100
 
+# 플랫폼 위에서 실행 중인지 여부 (로컬 실행에는 이 변수가 없다)
+RUNNING_ON_PLATFORM = bool(os.getenv("DATABRICKS_APP_NAME"))
+
 
 def app_client() -> WorkspaceClient:
     """앱 전용 서비스 프린시펄 권한으로 동작하는 클라이언트."""
@@ -145,22 +148,23 @@ def render_genie() -> None:
         )
         return
 
-    identity = st.radio(
-        "어느 권한으로 질문할까요?",
-        ["앱 권한 (서비스 프린시펄)", "사용자 권한 (사용자 대리 인증)"],
-        horizontal=True,
-    )
+    # 데이터 조회는 접속한 사용자 권한으로만 한다. 앱 권한으로 조회하면
+    # 앱 사용 권한만 있는 사람이 서비스 프린시펄의 테이블 권한을 빌려 쓰게 된다.
+    st.caption("질문은 접속한 사용자의 권한으로 실행됩니다.")
     question = st.text_input("질문", placeholder="예: 가장 많이 팔린 제품 5개는?")
     if not st.button("질문 보내기") or not question.strip():
         return
 
-    if identity.startswith("사용자"):
-        user_token = st.context.headers.get(USER_TOKEN_HEADER)
-        if not user_token:
-            st.warning("사용자 토큰이 없어 사용자 권한으로 질문할 수 없습니다.")
-            return
+    user_token = st.context.headers.get(USER_TOKEN_HEADER)
+    if user_token:
         client = user_client(user_token)
+    elif RUNNING_ON_PLATFORM:
+        st.warning(
+            "사용자 토큰이 없습니다. 앱의 사용자 권한 scope 에 genie 를 추가해야 합니다."
+        )
+        return
     else:
+        # 로컬 실행: 개발자 본인의 CLI 프로필 권한으로 동작한다.
         client = app_client()
 
     try:
