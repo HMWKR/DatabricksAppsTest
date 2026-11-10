@@ -1,0 +1,12 @@
+# Databricks Apps 실행 설정 파일. 저장소(배포 소스) 루트에 둔다.
+
+# 앱을 시작하는 명령. 셸을 거치지 않으므로 배열로 적는다.
+command: ["streamlit", "run", "app.py"]
+
+env:
+  # 앱에 추가한 리소스(키: genie-space)의 값을 환경변수로 받는다.
+  - name: GENIE_SPACE_ID
+    valueFrom: genie-space
+  # 값을 직접 적는 일반 환경변수. 비밀 값은 여기에 적지 않는다.
+  - name: STREAMLIT_BROWSER_GATHER_USAGE_STATS
+    value: "false"

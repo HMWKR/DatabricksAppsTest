@@ -1,0 +1,19 @@
+# 도구 상태 폴더
+.bkit/
+.omc/
+.serena/
+.fablize/
+
+# 중첩 클론 (정리 전까지 제외)
+DatabricksAppsTest/
+
+# Python
+__pycache__/
+.venv/
+*.pyc
+
+# 가리기 전 스크린샷 원본
+artifacts/
+
+# 로컬 실행용 비밀 값
+.env
