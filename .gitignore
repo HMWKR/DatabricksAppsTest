@@ -3,6 +3,7 @@
 .omc/
 .serena/
 .fablize/
+.playwright-mcp/
 
 # 중첩 클론 (정리 전까지 제외)
 DatabricksAppsTest/
