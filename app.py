@@ -9,6 +9,11 @@ import os
 import pandas as pd
 import streamlit as st
 from databricks.sdk import WorkspaceClient
+from databricks.sdk.service.serving import (
+    ChatMessage,
+    ChatMessageRole,
+    EndpointStateReady,
+)
 
 # 플랫폼이 자동 주입하는 환경변수 (비밀 값은 화면에 출력하지 않는다)
 AUTO_ENV_NAMES = [
@@ -35,6 +40,11 @@ USER_TOKEN_HEADER = "X-Forwarded-Access-Token"
 GENIE_SPACE_ID = os.getenv("GENIE_SPACE_ID", "")
 GENIE_RESULT_ROW_LIMIT = 100
 
+# 서빙 엔드포인트를 리소스로 추가하고 valueFrom 으로 연결했을 때 들어오는 이름 (선택)
+SERVING_ENDPOINT = os.getenv("SERVING_ENDPOINT", "")
+CHAT_TASK = "llm/v1/chat"
+MODEL_MAX_TOKENS = 300
+
 # 플랫폼 위에서 실행 중인지 여부 (로컬 실행에는 이 변수가 없다)
 RUNNING_ON_PLATFORM = bool(os.getenv("DATABRICKS_APP_NAME"))
 
@@ -50,6 +60,25 @@ def user_client(user_token: str) -> WorkspaceClient:
     return WorkspaceClient(
         host=os.getenv("DATABRICKS_HOST"), token=user_token, auth_type="pat"
     )
+
+
+def acting_user_client(required_scope: str) -> WorkspaceClient | None:
+    """데이터·모델 호출에 쓸 클라이언트. 접속한 사용자 권한으로만 동작한다.
+
+    앱 권한으로 호출하면 앱 사용 권한만 있는 사람이 서비스 프린시펄의
+    권한을 빌려 쓰게 되므로, 플랫폼 위에서는 사용자 토큰이 없으면 호출하지 않는다.
+    """
+    user_token = st.context.headers.get(USER_TOKEN_HEADER)
+    if user_token:
+        return user_client(user_token)
+    if RUNNING_ON_PLATFORM:
+        st.warning(
+            f"사용자 토큰이 없습니다. 앱의 사용자 권한 scope 에 {required_scope} 를 "
+            "추가해야 합니다."
+        )
+        return None
+    # 로컬 실행: 개발자 본인의 CLI 프로필 권한으로 동작한다.
+    return app_client()
 
 
 def render_environment() -> None:
@@ -148,24 +177,14 @@ def render_genie() -> None:
         )
         return
 
-    # 데이터 조회는 접속한 사용자 권한으로만 한다. 앱 권한으로 조회하면
-    # 앱 사용 권한만 있는 사람이 서비스 프린시펄의 테이블 권한을 빌려 쓰게 된다.
     st.caption("질문은 접속한 사용자의 권한으로 실행됩니다.")
     question = st.text_input("질문", placeholder="예: 가장 많이 팔린 제품 5개는?")
     if not st.button("질문 보내기") or not question.strip():
         return
 
-    user_token = st.context.headers.get(USER_TOKEN_HEADER)
-    if user_token:
-        client = user_client(user_token)
-    elif RUNNING_ON_PLATFORM:
-        st.warning(
-            "사용자 토큰이 없습니다. 앱의 사용자 권한 scope 에 genie 를 추가해야 합니다."
-        )
+    client = acting_user_client("genie")
+    if client is None:
         return
-    else:
-        # 로컬 실행: 개발자 본인의 CLI 프로필 권한으로 동작한다.
-        client = app_client()
 
     try:
         with st.spinner("Genie 가 답을 만드는 중입니다..."):
@@ -184,13 +203,75 @@ def render_genie() -> None:
         st.error(f"Genie 호출 실패: {exc}")
 
 
+def chat_endpoint_names(client: WorkspaceClient) -> list[str]:
+    """채팅 형식으로 호출할 수 있고 준비가 끝난 서빙 엔드포인트 이름."""
+    return sorted(
+        endpoint.name
+        for endpoint in client.serving_endpoints.list()
+        if endpoint.task == CHAT_TASK
+        and endpoint.state
+        and endpoint.state.ready == EndpointStateReady.READY
+    )
+
+
+def message_text(content) -> str:
+    """응답 본문을 문자열로 바꾼다. 모델에 따라 문자열 또는 조각 목록으로 온다."""
+    if isinstance(content, str):
+        return content
+    parts = [part.get("text", "") for part in content or [] if isinstance(part, dict)]
+    return "\n".join(part for part in parts if part)
+
+
+def render_model_serving() -> None:
+    st.subheader("서빙된 모델 호출하기")
+    st.caption("모델 호출은 접속한 사용자의 권한으로 실행됩니다.")
+
+    client = acting_user_client("model-serving")
+    if client is None:
+        return
+
+    try:
+        names = chat_endpoint_names(client)
+    except Exception as exc:
+        st.error(f"엔드포인트 목록 조회 실패: {exc}")
+        return
+    if not names:
+        st.info("호출할 수 있는 채팅 모델 엔드포인트가 없습니다.")
+        return
+
+    # app.yaml 의 valueFrom 으로 엔드포인트를 지정했으면 그것을 기본값으로 쓴다.
+    default_index = names.index(SERVING_ENDPOINT) if SERVING_ENDPOINT in names else 0
+    endpoint_name = st.selectbox("엔드포인트", names, index=default_index)
+    prompt = st.text_area("프롬프트", placeholder="예: Databricks Apps 를 한 문장으로 설명해줘")
+    if not st.button("모델에 보내기") or not prompt.strip():
+        return
+
+    try:
+        with st.spinner("모델이 답을 만드는 중입니다..."):
+            response = client.serving_endpoints.query(
+                name=endpoint_name,
+                messages=[
+                    ChatMessage(role=ChatMessageRole.USER, content=prompt.strip())
+                ],
+                max_tokens=MODEL_MAX_TOKENS,
+            )
+        st.write(message_text(response.choices[0].message.content))
+        if response.usage:
+            st.caption(
+                f"입력 {response.usage.prompt_tokens} 토큰, "
+                f"출력 {response.usage.completion_tokens} 토큰"
+            )
+    except Exception as exc:
+        st.error(f"모델 호출 실패: {exc}")
+
+
 def main() -> None:
     st.set_page_config(page_title="Databricks Apps 학습 앱", layout="wide")
     st.title("Databricks Apps 학습 앱")
     st.caption("플랫폼이 앱에 무엇을 주입하는지 직접 확인하는 예제입니다.")
 
-    env_tab, header_tab, identity_tab, genie_tab = st.tabs(
-        ["1. 실행 환경", "2. 접속 사용자", "3. 두 가지 신원", "4. Genie 리소스"]
+    env_tab, header_tab, identity_tab, genie_tab, model_tab = st.tabs(
+        ["실행 환경", "접속 사용자", "두 가지 신원", "Genie 리소스", "모델 서빙"]
     )
     with env_tab:
         render_environment()
@@ -200,6 +281,8 @@ def main() -> None:
         render_identities()
     with genie_tab:
         render_genie()
+    with model_tab:
+        render_model_serving()
 
 
 main()
