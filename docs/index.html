@@ -74,7 +74,7 @@
     display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 8px;
   }
   figcaption { color: var(--muted); font-size: 13.5px; margin-top: 8px; }
-  .note { border-left: 4px solid var(--info); background: var(--info-soft); padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 0 0 18px; max-width: 82ch; }
+  .note { border: 1px solid var(--info); background: var(--info-soft); padding: 12px 16px; border-radius: 8px; margin: 0 0 18px; max-width: 82ch; }
   .note.warn { border-color: var(--warn); background: var(--warn-soft); }
   .note.ok { border-color: var(--ok); background: var(--ok-soft); }
   .note p:last-child, .note ul:last-child { margin-bottom: 0; }
@@ -85,7 +85,7 @@
   .tag.unk { background: var(--warn-soft); color: var(--warn); }
   .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 12px; margin: 0 0 20px; }
   .card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
-  .card h4 { margin: 0 0 4px; font-size: 15.5px; }
+  .card h3 { margin: 0 0 4px; font-size: 15.5px; }
   .card p { margin: 0; font-size: 14.5px; color: var(--muted); }
   .flow { display: flex; flex-wrap: wrap; align-items: stretch; gap: 6px; margin: 0 0 20px; }
   .flow .step { flex: 1 1 150px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; font-size: 14.5px; }
@@ -147,10 +147,10 @@
 <h2 id="overview">1. 한눈에 보기</h2>
 
 <div class="cards">
-  <div class="card"><h4>무엇인가</h4><p>워크스페이스 안의 서버리스 컨테이너에서 도는 웹앱 호스팅 기능입니다.</p></div>
-  <div class="card"><h4>무엇으로 만드나</h4><p>Python(Streamlit, Dash, Gradio, Flask, FastAPI)이나 Node.js(React, Express 등)로 만듭니다.</p></div>
-  <div class="card"><h4>누가 접속하나</h4><p>워크스페이스에 로그인한 사용자만 접속합니다. 익명 공개는 할 수 없습니다.</p></div>
-  <div class="card"><h4>무엇이 핵심인가</h4><p>앱 자신의 권한과 접속한 사용자의 권한, 두 가지 신원을 구분해 쓰는 것입니다.</p></div>
+  <div class="card"><h3>무엇인가</h3><p>워크스페이스 안의 서버리스 컨테이너에서 도는 웹앱 호스팅 기능입니다.</p></div>
+  <div class="card"><h3>무엇으로 만드나</h3><p>Python(Streamlit, Dash, Gradio, Flask, FastAPI)이나 Node.js(React, Express 등)로 만듭니다.</p></div>
+  <div class="card"><h3>누가 접속하나</h3><p>워크스페이스에 로그인한 사용자만 접속합니다. 익명 공개는 할 수 없습니다.</p></div>
+  <div class="card"><h3>무엇이 핵심인가</h3><p>앱 자신의 권한과 접속한 사용자의 권한, 두 가지 신원을 구분해 쓰는 것입니다.</p></div>
 </div>
 
 <h3>이 프로젝트의 현재 상태</h3>
