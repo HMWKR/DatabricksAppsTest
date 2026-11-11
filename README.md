@@ -6,7 +6,7 @@ Databricks Apps를 이해하기 위한 학습용 프로젝트입니다. 실제�
 
 | 경로 | 내용 |
 |---|---|
-| `app.py` | Streamlit 예제 앱. 환경변수, 사용자 헤더, 두 가지 신원, Genie 리소스를 화면에서 확인합니다. |
+| `app.py` | Streamlit 예제 앱. 환경변수, 사용자 헤더, 두 가지 신원, Genie 리소스, 모델 서빙 호출을 화면에서 확인합니다. |
 | `app.yaml` | 앱 실행 명령과 환경변수 설정 |
 | `requirements.txt` | 추가 Python 패키지 |
 | `docs/index.html` | Databricks Apps 가이드 (스크린샷 포함) |
